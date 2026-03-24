@@ -1,0 +1,47 @@
+import PyPDF2
+import requests
+from bs4 import BeautifulSoup
+def read_pdf(file_path):
+    text = ""
+    with open(file_path, "rb") as file:
+        reader = PyPDF2.PdfReader(file)
+        for page in reader.pages:
+            if page.extract_text():
+                text += page.extract_text() + "\n"
+    return text
+def scrape_website(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+    paragraphs = soup.find_all("p")
+    text = " ".join([p.get_text() for p in paragraphs])
+    return text
+def extract_keywords(question):
+    stopwords = ["how", "to", "is", "the", "a", "an", "of", "for", "in", "on"]
+    words = question.lower().split()
+    keywords = [word for word in words if word not in stopwords]
+    return keywords
+def chatbot_response(question, pdf_text, web_text):
+    keywords = extract_keywords(question)
+    for line in pdf_text.split("\n"):
+        for keyword in keywords:
+            if keyword in line.lower():
+                return "ChatBot (From PDF):\n" + line.strip()
+    for line in web_text.split("."):
+        for keyword in keywords:
+            if keyword in line.lower():
+                return "ChatBot (From Website):\n" + line.strip()
+
+    return "Sorry, no relevant instruction found."
+pdf_text = read_pdf("NT-Target Batch - XI.pdf")
+web_text = scrape_website("https://www.millerperformancecars.com/store/show-by-car/e36/m5x-s5x-n-a-pistons-detail")
+print("Chatbot is ready. Type 'exit' to quit.")
+while True:
+    user_input = input("You: ")
+    if user_input.lower() == "exit":
+        print("Bot: Goodbye!")
+        break
+    response = chatbot_response(user_input, pdf_text, web_text)
+    print("Bot:", response)
