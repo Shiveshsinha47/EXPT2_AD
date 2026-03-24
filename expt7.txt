@@ -1,0 +1,188 @@
+1.	MainActivity.kt:
+
+package com.helloworld.sleeptracker
+
+import android.app.TimePickerDialog import android.content.SharedPreferences import android.os.Bundle
+import android.os.SystemClock import android.widget.*
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity class MainActivity : AppCompatActivity() {
+lateinit var chronometer: Chronometer lateinit var stageText: TextView lateinit var avgSleep: TextView
+
+lateinit var startBtn: Button lateinit var stopBtn: Button lateinit var resetBtn: Button lateinit var settingsBtn: Button
+ 
+lateinit var prefs: SharedPreferences var running = false
+override fun onCreate(savedInstanceState: Bundle?) {
+
+super.onCreate(savedInstanceState) setContentView(R.layout.activity_main)
+
+chronometer = findViewById(R.id.chronometer) stageText = findViewById(R.id.sleepStage) avgSleep = findViewById(R.id.avgSleep)
+
+startBtn = findViewById(R.id.startBtn) stopBtn = findViewById(R.id.stopBtn) resetBtn = findViewById(R.id.resetBtn) settingsBtn = findViewById(R.id.settingsBtn)
+prefs = getSharedPreferences("sleepData", MODE_PRIVATE) avgSleep.text = getAverageSleep()
+stopBtn.isEnabled = false
+
+startBtn.setOnClickListener { startSleep() } stopBtn.setOnClickListener { stopSleep() } resetBtn.setOnClickListener { resetSleep() } settingsBtn.setOnClickListener { openGoalPicker() }
+
+chronometer.setOnChronometerTickListener {
+val elapsed = (SystemClock.elapsedRealtime() - chronometer.base) / 1000 when {
+elapsed >= 5 -> stageText.text = "Sleep Stage: Deep Sleep" elapsed >= 2 -> stageText.text = "Sleep Stage: Light Sleep" else -> stageText.text = "Sleep Stage: Falling Asleep"
+}
+}
+}
+
+fun startSleep() { if (!running) {
+chronometer.base = SystemClock.elapsedRealtime() chronometer.start()
+
+running = true startBtn.isEnabled = false stopBtn.isEnabled = true
+}
+}
+ 
+fun stopSleep() { if (running) {
+chronometer.stop()
+
+val duration = (SystemClock.elapsedRealtime() - chronometer.base) / 1000 saveSleep(duration)
+avgSleep.text = getAverageSleep()
+
+running = false startBtn.isEnabled = true stopBtn.isEnabled = false
+showSummary(duration)
+}
+}
+
+fun resetSleep() {
+
+chronometer.base = SystemClock.elapsedRealtime() stageText.text = "Sleep Stage: Awake"
+
+Toast.makeText(this, "Session Reset", Toast.LENGTH_SHORT).show()
+}
+
+fun saveSleep(duration: Long) {
+
+val prev = prefs.getLong("totalSleep", 0) val count = prefs.getInt("days", 0)
+
+prefs.edit()
+.putLong("totalSleep", prev + duration)
+.putInt("days", count + 1)
+.apply()
+}
+
+fun getAverageSleep(): String {
+
+val total = prefs.getLong("totalSleep", 0) val days = prefs.getInt("days", 1)
+val avg = total / days val hours = avg / 3600
+val minutes = (avg % 3600) / 60
+
+return "Average Sleep: ${hours}h ${minutes}m"
+}
+
+fun openGoalPicker() {
+ 
+val picker = TimePickerDialog( this,
+{ _, hour, minute ->
+
+Toast.makeText( this,
+"Bedtime Goal Set: $hour:$minute", Toast.LENGTH_LONG
+).show()
+},
+22,
+0,
+true
+)
+
+picker.show()
+}
+fun showSummary(duration: Long) { val hours = duration / 3600
+val minutes = (duration % 3600) / 60 val seconds = duration % 60
+
+val sleepType = when {
+duration >= 5 -> "Deep Sleep" duration >= 2 -> "Light Sleep" else -> "Falling Asleep"
+}
+
+val message = """
+Sleep Duration: ${hours}h ${minutes}m ${seconds}s
+
+Sleep Stage Reached:
+$sleepType
+Great job tracking your sleep! """.trimIndent()
+
+AlertDialog.Builder(this)
+.setTitle("Sleep Summary")
+.setMessage(message)
+.setPositiveButton("OK") { dialog, _ ->
+dialog.dismiss()
+}
+.show()
+}
+}
+//////////////////
+acitivity_main.xml
+/////////////////
+ 
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#0F172A"
+android:padding="20dp">
+
+<ImageView android:id="@+id/logo" android:layout_width="90dp" android:layout_height="90dp" android:src="@drawable/kiit"
+app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp"/>
+<TextView android:id="@+id/title" android:text="Sleep Tracker" android:textSize="28sp" android:textStyle="bold" android:textColor="#FFFFFF"
+app:layout_constraintTop_toBottomOf="@id/logo" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
+<Chronometer android:id="@+id/chronometer" android:textSize="36sp" android:textColor="#E2E8F0"
+app:layout_constraintTop_toBottomOf="@id/title" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="15dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
+<TextView android:id="@+id/sleepStage" android:text="Sleep Stage: Awake" android:textSize="18sp" android:textColor="#CBD5F5"
+app:layout_constraintTop_toBottomOf="@id/chronometer" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp" android:layout_width="wrap_content"
+ 
+android:layout_height="wrap_content"/>
+
+<TextView android:id="@+id/avgSleep" android:text="Average Sleep: 0h 0m" android:textSize="16sp" android:textColor="#FFFFFF"
+app:layout_constraintTop_toBottomOf="@id/sleepStage" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
+<Button
+android:id="@+id/startBtn" android:text="Start Sleep" android:backgroundTint="#22C55E" android:textColor="#FFFFFF" android:layout_width="230dp" android:layout_height="wrap_content"
+app:layout_constraintTop_toBottomOf="@id/avgSleep" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="20dp"/>
+<Button
+android:id="@+id/stopBtn" android:text="Stop Sleep" android:backgroundTint="#EF4444" android:textColor="#FFFFFF" android:layout_width="230dp" android:layout_height="wrap_content"
+app:layout_constraintTop_toBottomOf="@id/startBtn" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp"/>
+
+<Button
+android:id="@+id/resetBtn" android:text="Reset" android:backgroundTint="#3B82F6" android:textColor="#FFFFFF" android:layout_width="230dp" android:layout_height="wrap_content"
+app:layout_constraintTop_toBottomOf="@id/stopBtn" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp"/>
+
+<Button
+android:id="@+id/settingsBtn" android:text="Set Bedtime Goal" android:layout_width="230dp"
+ 
+android:layout_height="wrap_content" android:backgroundTint="#2563EB" android:textColor="#FFFFFF" app:layout_constraintTop_toBottomOf="@id/resetBtn" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginTop="10dp"/>
+
+<TextView android:id="@+id/footer"
+android:text="Made by Shivesh - 2330047" android:textSize="18sp" android:textStyle="bold" android:textColor="#A5B4FC"
+app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" android:layout_marginBottom="12dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+////////////////
+themes.xml
+////////////////
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+<style name="Base.Theme.SleepTracker" parent="Theme.Material3.DayNight.NoActionBar">
+
+<item name="colorPrimary">#1E88E5</item>
+<item name="colorSecondary">#90CAF9</item>
+<item name="android:statusBarColor">#1565C0</item>
+
+</style>
+<style name="Theme.SleepTracker" parent="Base.Theme.SleepTracker" />
+
+</resources>
+
+///////////////
+Colors.xml
+//////////////
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<color name="bluePrimary">#1E88E5</color>
+<color name="blueDark">#1565C0</color>
+<color name="blueLight">#90CAF9</color>
+<color name="backgroundDark">#0F172A</color>
+<color name="textLight">#E2E8F0</color>
+</resources>
